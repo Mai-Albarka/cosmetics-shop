@@ -1,0 +1,22 @@
+<%- include('../partials/dash_header') %>
+<h1>Activity log</h1>
+<p class="muted">Every sale, confirmation, void, stock change, login and setting change is recorded here with the person and the time. Nothing in this list can be edited or deleted.</p>
+<form method="get" action="/admin/activity" class="row wrap-row">
+  <input name="q" value="<%= q %>" placeholder="Search action or details" class="grow">
+  <select name="user"><option value="">Everyone</option><% users.forEach(u => { %><option value="<%= u.id %>" <%= userId === u.id ? 'selected' : '' %>><%= u.name %></option><% }) %></select>
+  <button class="btn primary">Filter</button>
+</form>
+<table class="table">
+  <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th><th>Order</th></tr></thead>
+  <tbody>
+  <% if (!rows.length) { %><tr><td colspan="5" class="muted">Nothing recorded yet.</td></tr><% } %>
+  <% rows.forEach(r => { %><tr>
+    <td class="small nowrap"><%= fmtDate(r.created_at) %></td>
+    <td><%= r.user_name %></td>
+    <td><span class="tag <%= /void|reject|cancel|failed/.test(r.action) ? 'bad' : /sale|confirm|collect/.test(r.action) ? 'ok' : 'muted' %>"><%= r.action %></span></td>
+    <td class="small"><%= r.details %></td>
+    <td><% if (r.order_id) { %><a href="/admin/orders/<%= r.order_id %>">#<%= r.order_id %></a><% } %></td>
+  </tr><% }) %>
+  </tbody>
+</table>
+<%- include('../partials/dash_footer') %>

@@ -1,0 +1,86 @@
+const express = require('express');
+const { db } = require('../db');
+const H = require('../helpers');
+const O = require('../orders');
+const { orderPdf } = require('../pdf');
+
+const r = express.Router();
+r.use(H.requireLogin);
+
+r.get('/', (req, res) => {
+  const products = db.prepare('SELECT p.id, p.name, p.price, p.stock, p.image, c.name AS category FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.active = 1 ORDER BY p.name').all();
+  const maxPct = req.session.user.role === 'admin' ? 100 : H.num(H.settings.get('staff_discount_max_percent'), 0);
+  res.render('pos/index', { title: 'Point of sale', products, maxPct, error: req.query.error || null });
+});
+
+r.post('/sale', (req, res) => {
+  try {
+    const isAdmin = req.session.user.role === 'admin';
+    let discount = H.num(req.body.discount, 0);
+    if (!isAdmin && discount > 0) {
+      const maxPct = H.num(H.settings.get('staff_discount_max_percent'), 0);
+      if (maxPct <= 0) throw new O.OrderError('Discounts are not allowed for staff. Ask the owner.');
+      // compute subtotal to validate the percentage
+      const wanted = JSON.parse(req.body.items || '[]');
+      let sub = 0;
+      for (const it of wanted) { const pr = db.prepare('SELECT price FROM products WHERE id = ?').get(H.int(it.id)); if (pr) sub += pr.price * H.int(it.qty); }
+      if (discount > sub * maxPct / 100) throw new O.OrderError(`Staff discounts are limited to ${maxPct}% (max ${H.fmtMoney(sub * maxPct / 100)} on this sale).`);
+    }
+    const o = O.createOrder({
+      type: 'pos', items: req.body.items, customer_name: String(req.body.customer_name || ''), customer_phone: String(req.body.customer_phone || ''),
+      payment_method: H.PAYMENT_METHODS[req.body.payment_method] ? req.body.payment_method : 'cash', discount, staff_id: req.session.user.id
+    });
+    H.audit(req, 'sale.created', `${o.invoice_no} ${o.payment_method} total ${o.total}${o.discount ? ' (discount ' + o.discount + ')' : ''}`, o.id);
+    res.redirect(`/pos/sale/${o.id}`);
+  } catch (e) {
+    if (e instanceof O.OrderError) return res.redirect('/pos?error=' + encodeURIComponent(e.message));
+    throw e;
+  }
+});
+
+r.get('/sale/:id', (req, res) => {
+  const o = O.getOrder(H.int(req.params.id));
+  if (!o) return res.status(404).render('error', { title: 'Not found', message: 'Sale not found.' });
+  res.render('pos/sale', { title: o.invoice_no, o });
+});
+r.get('/sale/:id/pdf', (req, res) => {
+  const o = O.getOrder(H.int(req.params.id));
+  if (!o) return res.status(404).end();
+  orderPdf(res, o, res.locals.shop, o.type === 'pos' ? 'sale' : (['confirmed', 'collected'].includes(o.status) ? 'receipt' : 'invoice'));
+});
+
+// Online orders waiting to be collected (customer shows receipt at the counter)
+r.get('/collections', (req, res) => {
+  const q = String(req.query.q || '').trim();
+  let found = null;
+  if (q) {
+    const inv = q.toUpperCase().startsWith('INV-') ? q.toUpperCase() : 'INV-' + q.replace(/\D/g, '').padStart(6, '0');
+    found = O.getOrderByInvoice(inv);
+    if (!found) found = db.prepare(`SELECT id FROM orders WHERE type='online' AND customer_phone LIKE ? ORDER BY id DESC LIMIT 1`).get(`%${q.replace(/\D/g, '').slice(-9)}%`);
+    if (found && !found.items) found = O.getOrder(found.id);
+  }
+  const waiting = db.prepare(`SELECT * FROM orders WHERE type = 'online' AND status = 'confirmed' ORDER BY confirmed_at DESC`).all();
+  res.render('pos/collections', { title: 'Collections', q, found, waiting });
+});
+r.post('/collections/:id/collect', (req, res) => {
+  try { O.collectOrder(H.int(req.params.id), req.session.user.id); H.audit(req, 'order.collected', 'order #' + req.params.id, H.int(req.params.id)); H.flash(req, 'ok', 'Order marked as collected.'); }
+  catch (e) { if (e instanceof O.OrderError) H.flash(req, 'error', e.message); else throw e; }
+  res.redirect('/pos/collections');
+});
+
+r.get('/sales', (req, res) => {
+  const tz = H.tzMod();
+  const mine = req.session.user.role !== 'admin';
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(req.query.day || '') ? req.query.day : db.prepare(`SELECT date('now', ?) AS d`).get(tz).d;
+  const rows = db.prepare(`SELECT o.*, u.name AS sold_by_name FROM orders o LEFT JOIN users u ON u.id = o.sold_by
+    WHERE o.paid_at IS NOT NULL AND o.status IN ('confirmed','collected') AND date(o.paid_at, ?) = ? ${mine ? 'AND o.sold_by = ?' : ''} ORDER BY o.paid_at DESC`)
+    .all(...(mine ? [tz, day, req.session.user.id] : [tz, day]));
+  const total = rows.reduce((s, o) => s + o.total, 0);
+  const byMethod = {}; for (const o of rows) byMethod[o.payment_method] = (byMethod[o.payment_method] || 0) + o.total;
+  const byStaff = {};
+  for (const o of rows) { const k = o.sold_by_name || 'Online orders'; const b = byStaff[k] || (byStaff[k] = { n: 0, total: 0, cash: 0, transfer: 0, card: 0 }); b.n++; b.total += o.total; b[o.payment_method] = (b[o.payment_method] || 0) + o.total; }
+  const voided = db.prepare(`SELECT o.*, u.name AS sold_by_name FROM orders o LEFT JOIN users u ON u.id = o.sold_by WHERE o.type = 'pos' AND o.status = 'cancelled' AND date(o.created_at, ?) = ? ${mine ? 'AND o.sold_by = ?' : ''} ORDER BY o.id DESC`).all(...(mine ? [tz, day, req.session.user.id] : [tz, day]));
+  res.render('pos/sales', { title: 'Sales', rows, total, day, mine, byMethod, byStaff, voided });
+});
+
+module.exports = r;

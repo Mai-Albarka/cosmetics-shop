@@ -1,0 +1,37 @@
+<%- include('../partials/dash_header') %>
+<h1>Sales reports</h1>
+<form method="get" action="/admin/reports" class="row wrap-row card">
+  <div class="seg"><% ['daily','weekly','monthly','yearly'].forEach(p => { %><a href="/admin/reports?period=<%= p %>" class="<%= period === p ? 'on' : '' %>"><%= p[0].toUpperCase() + p.slice(1) %></a><% }) %></div>
+  <input type="hidden" name="period" value="<%= period %>">
+  <label>From <input type="date" name="from" value="<%= from %>"></label>
+  <label>To <input type="date" name="to" value="<%= to %>"></label>
+  <button class="btn primary">Apply</button>
+  <a class="btn" href="/admin/reports/export.csv?period=<%= period %>&from=<%= from %>&to=<%= to %>">Download CSV (Excel)</a>
+</form>
+<div class="stat-row">
+  <div class="stat"><div class="muted">Total sales</div><div class="stat-val"><%= fmtMoney(summary.total) %></div></div>
+  <div class="stat"><div class="muted">Number of sales</div><div class="stat-val"><%= summary.n %></div></div>
+  <div class="stat"><div class="muted">Average sale</div><div class="stat-val"><%= fmtMoney(summary.avg) %></div></div>
+</div>
+<div class="card"><h2><%= period[0].toUpperCase() + period.slice(1) %> sales, <%= from %> to <%= to %></h2><div style="height:260px"><canvas id="chart"></canvas></div></div>
+<div class="card">
+  <table class="table">
+    <thead><tr><th>Period</th><th class="r">Sales</th><th class="r">Items</th><th class="r">Shop (counter)</th><th class="r">Online</th><th class="r">Total</th></tr></thead>
+    <tbody><% if (!rows.length) { %><tr><td colspan="6" class="muted">No sales in this range.</td></tr><% } %>
+    <% rows.forEach(x => { %><tr><td><%= x.bucket %><% if (period === 'weekly') { %> <span class="muted small">(from <%= x.first_day %>)</span><% } %></td><td class="r"><%= x.n %></td><td class="r"><%= x.items %></td><td class="r"><%= fmtMoney(x.pos_total) %></td><td class="r"><%= fmtMoney(x.online_total) %></td><td class="r"><strong><%= fmtMoney(x.total) %></strong></td></tr><% }) %></tbody>
+  </table>
+</div>
+<div class="three-col">
+  <div class="card"><h2>Top products</h2><table class="table compact"><tbody><% topProducts.forEach(t => { %><tr><td><%= t.name %></td><td class="r"><%= t.qty %> sold</td><td class="r"><%= fmtMoney(t.total) %></td></tr><% }) %></tbody></table></div>
+  <div class="card"><h2>By staff</h2><table class="table compact"><tbody><% byStaff.forEach(t => { %><tr><td><%= t.name %></td><td class="r"><%= t.n %></td><td class="r"><%= fmtMoney(t.total) %></td></tr><% }) %></tbody></table></div>
+  <div class="card"><h2>By payment method</h2><table class="table compact"><tbody><% byMethod.forEach(t => { %><tr><td><%= PAYMENT_METHODS[t.payment_method] || t.payment_method %></td><td class="r"><%= t.n %></td><td class="r"><%= fmtMoney(t.total) %></td></tr><% }) %></tbody></table></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const rows = <%- jsonForScript(rows) %>;
+new Chart(document.getElementById('chart'), { type: 'bar', data: { labels: rows.map(r => r.bucket), datasets: [
+  { label: 'Shop (counter)', data: rows.map(r => r.pos_total), backgroundColor: '#0d0d0d', borderRadius: 4 },
+  { label: 'Online', data: rows.map(r => r.online_total), backgroundColor: '#c9a227', borderRadius: 4 }] },
+  options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { callback: v => '₦' + v.toLocaleString() } } } } });
+</script>
+<%- include('../partials/dash_footer') %>

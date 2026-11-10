@@ -1,0 +1,40 @@
+<%- include('../partials/store_header') %>
+<h1>Checkout</h1>
+<div class="two-col">
+  <form method="post" action="/checkout" class="card" id="checkout-form">
+    <% if (error) { %><div class="flash flash-error"><%= error %></div><% } %>
+    <h2>Your details</h2>
+    <label>Full name <input name="name" required value="<%= form.name || '' %>"></label>
+    <label>Phone number (WhatsApp) <input name="phone" required value="<%= form.phone || '' %>" placeholder="e.g. 0803 123 4567"></label>
+    <label>Address / where you will collect <input name="address" value="<%= form.address || '' %>" placeholder="optional"></label>
+    <label>Note for the shop <textarea name="note" rows="2"><%= form.note || '' %></textarea></label>
+    <input type="hidden" name="items" id="items-input">
+    <div class="payment-info">
+      <strong>How payment works</strong>
+      <ol>
+        <li>Place the order. You get an invoice with our bank account number.</li>
+        <li>Transfer the exact amount from your bank app.</li>
+        <li>Upload a screenshot of the transfer receipt on your order page.</li>
+        <li>We confirm it, then you download your receipt and collect at the shop.</li>
+      </ol>
+    </div>
+    <button class="btn primary wide" id="place-order">Place order &amp; get invoice</button>
+  </form>
+  <div class="card">
+    <h2>Order summary</h2>
+    <table class="table" id="cart-table"><tbody></tbody>
+      <tfoot><tr><td colspan="3" class="r"><strong>Total</strong></td><td class="r"><strong id="cart-total"></strong></td></tr></tfoot></table>
+    <div id="cart-empty" hidden><p class="muted">Your cart is empty.</p></div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  Cart.renderCartPage({ compact: true });
+  document.getElementById('checkout-form').addEventListener('submit', e => {
+    const items = Cart.items();
+    if (!items.length) { e.preventDefault(); alert('Your cart is empty.'); return; }
+    document.getElementById('items-input').value = JSON.stringify(items);
+  });
+});
+</script>
+<%- include('../partials/store_footer') %>

@@ -1,0 +1,48 @@
+<%- include('../partials/dash_header') %>
+<h1>Dashboard</h1>
+<div class="stat-row">
+  <% [['Today', stats.today], ['This week', stats.week], ['This month', stats.month], ['This year', stats.year]].forEach(([k, s]) => { %>
+  <div class="stat"><div class="muted"><%= k %></div><div class="stat-val"><%= fmtMoney(s.total) %></div><div class="small muted"><%= s.n %> sale<%= s.n === 1 ? '' : 's' %></div></div>
+  <% }) %>
+</div>
+<div class="stat-row">
+  <a class="stat link" href="/admin/orders?status=payment_submitted"><div class="muted">Receipts to confirm</div><div class="stat-val <%= pending.length ? 'attn' : '' %>"><%= pending.length %></div></a>
+  <a class="stat link" href="/admin/orders?status=pending_payment"><div class="muted">Awaiting payment</div><div class="stat-val"><%= awaitingPayment %></div></a>
+  <a class="stat link" href="/admin/orders?status=confirmed"><div class="muted">Ready for collection</div><div class="stat-val"><%= readyForCollection %></div></a>
+  <a class="stat link" href="/admin/products"><div class="muted">Low stock items</div><div class="stat-val <%= lowStock.length ? 'attn' : '' %>"><%= lowStock.length %></div></a>
+</div>
+<div class="card">
+  <h2>Sales, last 14 days</h2>
+  <div style="height:220px"><canvas id="chart"></canvas></div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <h2>Payment receipts waiting for confirmation</h2>
+    <% if (!pending.length) { %><p class="muted">None right now.</p><% } else { %>
+    <table class="table compact"><tbody><% pending.forEach(o => { %><tr><td><a href="/admin/orders/<%= o.id %>"><%= o.invoice_no %></a></td><td><%= o.customer_name %></td><td class="r"><%= fmtMoney(o.total) %></td><td class="small muted"><%= fmtDate(o.payment_submitted_at) %></td></tr><% }) %></tbody></table>
+    <% } %>
+  </div>
+  <div class="card">
+    <h2>Low stock</h2>
+    <% if (!lowStock.length) { %><p class="muted">All products are stocked.</p><% } else { %>
+    <table class="table compact"><tbody><% lowStock.forEach(p => { %><tr><td><a href="/admin/products/<%= p.id %>/edit"><%= p.name %></a></td><td class="r"><span class="tag <%= p.stock <= 0 ? 'bad' : 'warn' %>"><%= p.stock %> left</span></td></tr><% }) %></tbody></table>
+    <% } %>
+  </div>
+</div>
+<div class="card">
+  <h2>Recent activity</h2>
+  <table class="table compact">
+    <thead><tr><th>Invoice</th><th>Type</th><th>Customer</th><th>Status</th><th class="r">Total</th><th>When</th></tr></thead>
+    <tbody><% recent.forEach(o => { %><tr><td><a href="/admin/orders/<%= o.id %>"><%= o.invoice_no %></a></td><td><%= o.type === 'pos' ? 'Shop sale' + (o.sold_by_name ? ' · ' + o.sold_by_name : '') : 'Online' %></td><td><%= o.customer_name || 'Walk-in' %></td><td><span class="tag <%= statusClass(o.status) %>"><%= statusLabel(o.status) %></span></td><td class="r"><%= fmtMoney(o.total) %></td><td class="small muted"><%= fmtDate(o.created_at) %></td></tr><% }) %></tbody>
+  </table>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const daily = <%- jsonForScript(daily) %>;
+const days = []; const d = new Date(); d.setDate(d.getDate() - 13);
+for (let i = 0; i < 14; i++) { days.push(new Date(d.getTime() + i * 86400000).toISOString().slice(0, 10)); }
+const map = Object.fromEntries(daily.map(x => [x.day, x.total]));
+new Chart(document.getElementById('chart'), { type: 'bar', data: { labels: days.map(s => s.slice(5)), datasets: [{ label: 'Sales (₦)', data: days.map(s => map[s] || 0), backgroundColor: '#c9a227', borderRadius: 6 }] },
+  options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '₦' + v.toLocaleString() } } } } });
+</script>
+<%- include('../partials/dash_footer') %>

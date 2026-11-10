@@ -1,0 +1,80 @@
+<%- include('../partials/store_header') %>
+<% const paid = ['confirmed','collected'].includes(o.status); %>
+<% if (isNew) { %><div class="flash flash-ok">Your order has been placed. Invoice number <strong><%= o.invoice_no %></strong>. Save this page link or your invoice number to come back later.</div><% } %>
+<div class="order-head">
+  <div>
+    <h1><%= o.invoice_no %></h1>
+    <div class="muted">Placed <%= fmtDate(o.created_at) %> · <%= o.customer_name %> · <%= o.customer_phone %></div>
+  </div>
+  <span class="tag <%= statusClass(o.status) %>"><%= statusLabel(o.status) %></span>
+</div>
+
+<div class="two-col">
+  <div>
+    <div class="card">
+      <h2>Items</h2>
+      <table class="table">
+        <thead><tr><th>Item</th><th class="r">Price</th><th class="r">Qty</th><th class="r">Total</th></tr></thead>
+        <tbody><% o.items.forEach(i => { %><tr><td><%= i.name %></td><td class="r"><%= fmtMoney(i.price) %></td><td class="r"><%= i.qty %></td><td class="r"><%= fmtMoney(i.line_total) %></td></tr><% }) %></tbody>
+        <tfoot><tr><td colspan="3" class="r"><strong>Total to pay</strong></td><td class="r"><strong><%= fmtMoney(o.total) %></strong></td></tr></tfoot>
+      </table>
+      <div class="row">
+        <a class="btn" href="/order/<%= o.invoice_no %>/pdf?token=<%= token %>&type=invoice">Download invoice (PDF)</a>
+        <% if (paid) { %><a class="btn primary" href="/order/<%= o.invoice_no %>/pdf?token=<%= token %>&type=receipt">Download receipt (PDF)</a><% } %>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Progress</h2>
+      <ol class="timeline">
+        <li class="done">Order placed <span class="muted"><%= fmtDate(o.created_at) %></span></li>
+        <li class="<%= o.payment_submitted_at ? 'done' : '' %>">Payment receipt uploaded <% if (o.payment_submitted_at) { %><span class="muted"><%= fmtDate(o.payment_submitted_at) %></span><% } %></li>
+        <li class="<%= paid ? 'done' : '' %>">Payment confirmed by the shop <% if (o.confirmed_at) { %><span class="muted"><%= fmtDate(o.confirmed_at) %></span><% } %></li>
+        <li class="<%= o.status === 'collected' ? 'done' : '' %>">Collected at the shop <% if (o.collected_at) { %><span class="muted"><%= fmtDate(o.collected_at) %></span><% } %></li>
+      </ol>
+    </div>
+  </div>
+
+  <div>
+    <% if (['pending_payment','rejected','payment_submitted'].includes(o.status)) { %>
+    <div class="card pay-box">
+      <h2>1. Pay by bank transfer</h2>
+      <% if (o.status === 'rejected') { %><div class="flash flash-error">Your previous receipt was rejected<%= o.rejected_reason ? ': ' + o.rejected_reason : '.' %> Please upload a correct receipt.</div><% } %>
+      <dl class="bank">
+        <dt>Bank</dt><dd><%= shop.bank_name || '—' %></dd>
+        <dt>Account number</dt><dd class="acct"><%= shop.account_number || '—' %></dd>
+        <dt>Account name</dt><dd><%= shop.account_name || '—' %></dd>
+        <dt>Amount</dt><dd><strong><%= fmtMoney(o.total) %></strong></dd>
+        <dt>Reference</dt><dd><%= o.invoice_no %></dd>
+      </dl>
+      <p class="small muted"><%= shop.invoice_note %></p>
+      <h2>2. Upload your transfer receipt</h2>
+      <% if (o.status === 'payment_submitted') { %><p class="flash flash-info">We have received your receipt and are checking it. You can upload a different one if you made a mistake.</p><% } %>
+      <form method="post" action="/order/<%= o.invoice_no %>/payment?token=<%= token %>" enctype="multipart/form-data">
+        <input type="hidden" name="token" value="<%= token %>">
+        <label>Screenshot of receipt (image or PDF) <input type="file" name="screenshot" accept="image/*,application/pdf" required></label>
+        <label>Note (optional) <input name="payment_note" placeholder="e.g. sent from GTBank, name on account"></label>
+        <button class="btn primary wide">Send receipt to the shop</button>
+      </form>
+    </div>
+    <% } else if (o.status === 'confirmed') { %>
+    <div class="card ok-box">
+      <h2>Payment confirmed ✅</h2>
+      <p>Your order is ready. Download your receipt and show it (or your invoice number <strong><%= o.invoice_no %></strong>) at the shop to collect your items.</p>
+      <a class="btn primary wide" href="/order/<%= o.invoice_no %>/pdf?token=<%= token %>&type=receipt">Download receipt (PDF)</a>
+    </div>
+    <% } else if (o.status === 'collected') { %>
+    <div class="card ok-box"><h2>Collected</h2><p>This order was collected on <%= fmtDate(o.collected_at) %>. Thank you!</p></div>
+    <% } else if (o.status === 'cancelled') { %>
+    <div class="card"><h2>Cancelled</h2><p>This order was cancelled. Contact the shop if you think this is a mistake.</p></div>
+    <% } %>
+    <% if (o.payment_proof) { %>
+    <div class="card"><h3>Receipt you uploaded</h3>
+      <% if (/\.pdf$/i.test(o.payment_proof)) { %><a href="/payment-proof/<%= o.invoice_no %>?token=<%= token %>" target="_blank">Open uploaded PDF</a>
+      <% } else { %><a href="/payment-proof/<%= o.invoice_no %>?token=<%= token %>" target="_blank"><img class="proof" src="/payment-proof/<%= o.invoice_no %>?token=<%= token %>" alt="Uploaded receipt"></a><% } %>
+    </div>
+    <% } %>
+  </div>
+</div>
+<% if (isNew) { %><script>try { localStorage.removeItem('cart'); } catch (e) {}</script><% } %>
+<%- include('../partials/store_footer') %>

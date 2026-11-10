@@ -1,0 +1,43 @@
+<%- include('../partials/dash_header') %>
+<div class="row between">
+  <h1><%= mine ? 'My sales' : 'Sales by day' %></h1>
+  <form method="get" action="/pos/sales" class="row"><input type="date" name="day" value="<%= day %>"><button class="btn">Show</button></form>
+</div>
+<div class="stat-row">
+  <div class="stat"><div class="muted">Sales on <%= day %></div><div class="stat-val"><%= rows.length %></div></div>
+  <div class="stat"><div class="muted">Total</div><div class="stat-val"><%= fmtMoney(total) %></div></div>
+  <div class="stat gold"><div class="muted">Cash to hand over</div><div class="stat-val"><%= fmtMoney(byMethod.cash || 0) %></div></div>
+  <div class="stat"><div class="muted">Bank transfers</div><div class="stat-val"><%= fmtMoney(byMethod.transfer || 0) %></div></div>
+  <div class="stat"><div class="muted">Card / POS machine</div><div class="stat-val"><%= fmtMoney(byMethod.card || 0) %></div></div>
+</div>
+<% if (!mine && Object.keys(byStaff).length) { %>
+<div class="card">
+  <h2>End of day, per staff</h2>
+  <table class="table compact">
+    <thead><tr><th>Staff</th><th class="r">Sales</th><th class="r">Cash</th><th class="r">Transfer</th><th class="r">Card</th><th class="r">Total</th></tr></thead>
+    <tbody><% Object.entries(byStaff).forEach(([name, b]) => { %><tr><td><%= name %></td><td class="r"><%= b.n %></td><td class="r"><strong><%= fmtMoney(b.cash) %></strong></td><td class="r"><%= fmtMoney(b.transfer) %></td><td class="r"><%= fmtMoney(b.card) %></td><td class="r"><%= fmtMoney(b.total) %></td></tr><% }) %></tbody>
+  </table>
+</div>
+<% } %>
+<div class="card">
+<table class="table">
+  <thead><tr><th>Time</th><th>Receipt</th><th>Type</th><th>Customer</th><th>Payment</th><% if (!mine) { %><th>Staff</th><% } %><th class="r">Total</th></tr></thead>
+  <tbody>
+  <% if (!rows.length) { %><tr><td colspan="7" class="muted">No sales recorded for this day.</td></tr><% } %>
+  <% rows.forEach(o => { %><tr>
+    <td><%= fmtDate(o.paid_at).split(', ')[1] %></td>
+    <td><a href="/pos/sale/<%= o.id %>"><%= o.invoice_no %></a></td>
+    <td><%= o.type === 'pos' ? 'Shop' : 'Online' %></td><td><%= o.customer_name || 'Walk-in' %></td>
+    <td><%= PAYMENT_METHODS[o.payment_method] || o.payment_method %></td>
+    <% if (!mine) { %><td><%= o.sold_by_name || (o.type === 'online' ? 'Online' : '-') %></td><% } %>
+    <td class="r"><%= fmtMoney(o.total) %></td></tr><% }) %>
+  </tbody>
+</table>
+</div>
+<% if (voided.length) { %>
+<div class="card">
+  <h2>Voided sales on this day</h2>
+  <table class="table compact"><tbody><% voided.forEach(o => { %><tr><td><a href="/pos/sale/<%= o.id %>"><%= o.invoice_no %></a></td><td><%= o.sold_by_name || '' %></td><td class="r"><s><%= fmtMoney(o.total) %></s></td><td class="small muted"><%= o.rejected_reason %></td></tr><% }) %></tbody></table>
+</div>
+<% } %>
+<%- include('../partials/dash_footer') %>

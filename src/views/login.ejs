@@ -1,0 +1,14 @@
+<%- include('partials/head') %>
+<body class="auth">
+<div class="auth-box">
+  <h1><%= shop.shop_name %></h1>
+  <p class="muted">Staff and owner login</p>
+  <% if (error) { %><div class="flash flash-error"><%= error %></div><% } %>
+  <form method="post" action="/login">
+    <label>Username <input name="username" required autofocus autocomplete="username"></label>
+    <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
+    <button class="btn primary wide">Log in</button>
+  </form>
+  <p class="muted"><a href="/">← Back to the shop</a></p>
+</div>
+</body></html>

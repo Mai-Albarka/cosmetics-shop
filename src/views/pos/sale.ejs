@@ -1,0 +1,31 @@
+<%- include('../partials/dash_header') %>
+<div class="row between no-print">
+  <h1>Sale <%= o.invoice_no %></h1>
+  <div class="row">
+    <button class="btn" onclick="window.print()">Print</button>
+    <a class="btn" href="/pos/sale/<%= o.id %>/pdf">Download PDF</a>
+    <a class="btn primary" href="/pos">New sale</a>
+  </div>
+</div>
+<% if (o.status === 'cancelled') { %><div class="flash flash-error no-print"><strong><%= o.type === 'pos' ? 'VOIDED' : 'CANCELLED' %></strong><%= o.rejected_reason ? ' · ' + o.rejected_reason : '' %></div><% } %>
+<div class="receipt card">
+  <div class="rc-head">
+    <div><strong><%= shop.shop_name %></strong><br><span class="small"><%= shop.address %><% if (shop.phone) { %> · <%= shop.phone %><% } %></span></div>
+    <div class="r"><strong><%= o.type === 'pos' ? 'SALES RECEIPT' : 'RECEIPT' %></strong><br><%= o.invoice_no %><br><span class="small"><%= fmtDate(o.created_at) %></span></div>
+  </div>
+  <div class="small">Customer: <%= o.customer_name || 'Walk-in' %><% if (o.customer_phone) { %> · <%= o.customer_phone %><% } %>
+    · Served by: <%= o.sold_by_name || '-' %> · Payment: <%= PAYMENT_METHODS[o.payment_method] || o.payment_method %></div>
+  <table class="table compact">
+    <thead><tr><th>Item</th><th class="r">Price</th><th class="r">Qty</th><th class="r">Total</th></tr></thead>
+    <tbody><% o.items.forEach(i => { %><tr><td><%= i.name %></td><td class="r"><%= fmtMoney(i.price) %></td><td class="r"><%= i.qty %></td><td class="r"><%= fmtMoney(i.line_total) %></td></tr><% }) %></tbody>
+    <tfoot>
+      <tr><td colspan="3" class="r">Subtotal</td><td class="r"><%= fmtMoney(o.subtotal) %></td></tr>
+      <% if (o.discount > 0) { %><tr><td colspan="3" class="r">Discount</td><td class="r">-<%= fmtMoney(o.discount) %></td></tr><% } %>
+      <tr><td colspan="3" class="r"><strong>TOTAL</strong></td><td class="r"><strong><%= fmtMoney(o.total) %></strong></td></tr>
+    </tfoot>
+  </table>
+  <% if (o.status === 'cancelled') { %><p class="center voided-stamp"><%= o.type === 'pos' ? 'VOIDED' : 'CANCELLED' %></p><% } %>
+  <p class="small center"><%= shop.receipt_note %></p>
+  <p class="small center muted">Receipt no. <%= o.invoice_no %> · recorded <%= fmtDate(o.created_at) %> · served by <%= o.sold_by_name || '-' %></p>
+</div>
+<%- include('../partials/dash_footer') %>

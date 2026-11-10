@@ -1,0 +1,29 @@
+<%- include('head') %>
+<body class="dash">
+<div class="dash-shell">
+<aside class="sidebar">
+  <div class="side-brand"><%= shop.shop_name %></div>
+  <div class="side-user"><%= user.name %> <span class="muted">(<%= user.role %>)</span></div>
+  <nav>
+    <div class="side-title">Shop counter</div>
+    <a href="/pos" class="<%= path === '/pos' ? 'active' : '' %>">New sale</a>
+    <a href="/pos/collections" class="<%= path.startsWith('/pos/collections') ? 'active' : '' %>">Order collections</a>
+    <a href="/pos/sales" class="<%= path.startsWith('/pos/sales') ? 'active' : '' %>"><%= user.role === 'admin' ? 'Sales by day' : 'My sales' %></a>
+    <% if (user.role === 'admin') { %>
+    <div class="side-title">Owner</div>
+    <a href="/admin" class="<%= path === '/admin' ? 'active' : '' %>">Dashboard</a>
+    <a href="/admin/orders" class="<%= path.startsWith('/admin/orders') ? 'active' : '' %>">Orders</a>
+    <a href="/admin/products" class="<%= path.startsWith('/admin/products') ? 'active' : '' %>">Products</a>
+    <a href="/admin/reports" class="<%= path.startsWith('/admin/reports') ? 'active' : '' %>">Sales reports</a>
+    <a href="/admin/staff" class="<%= path.startsWith('/admin/staff') ? 'active' : '' %>">Staff accounts</a>
+    <a href="/admin/activity" class="<%= path.startsWith('/admin/activity') ? 'active' : '' %>">Activity log</a>
+    <a href="/admin/settings" class="<%= path.startsWith('/admin/settings') ? 'active' : '' %>">Settings</a>
+    <% } %>
+    <div class="side-title">Account</div>
+    <a href="/" target="_blank">View shop site</a>
+    <a href="/account/password">Change password</a>
+    <form method="post" action="/logout"><button class="linklike">Log out</button></form>
+  </nav>
+</aside>
+<main class="content">
+<%- include('flash') %>

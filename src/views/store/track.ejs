@@ -1,0 +1,11 @@
+<%- include('../partials/store_header') %>
+<div class="card narrow">
+  <h1>Track your order</h1>
+  <% if (error) { %><div class="flash flash-error"><%= error %></div><% } %>
+  <form method="post" action="/track">
+    <label>Invoice number <input name="invoice" required value="<%= inv || '' %>" placeholder="INV-000123"></label>
+    <label>Phone number used on the order <input name="phone" required></label>
+    <button class="btn primary">Open order</button>
+  </form>
+</div>
+<%- include('../partials/store_footer') %>

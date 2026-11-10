@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6e3a1"/><stop offset=".45" stop-color="#c9a227"/><stop offset="1" stop-color="#8d6f12"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#8d6f12"/><stop offset=".5" stop-color="#f6e3a1"/><stop offset="1" stop-color="#c9a227"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="98" fill="#0d0d0d"/>
+  <circle cx="100" cy="100" r="90" fill="none" stroke="url(#g)" stroke-width="4"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="url(#g2)" stroke-width="1.2" opacity=".7"/>
+  <path d="M100 18 l3.5 7 7 3.5 -7 3.5 -3.5 7 -3.5 -7 -7 -3.5 7 -3.5z" fill="#f6e3a1"/>
+  <text x="100" y="114" text-anchor="middle" font-family="'Playfair Display', Georgia, 'Times New Roman', serif" font-weight="700" font-size="66" fill="url(#g)" letter-spacing="-1">M&amp;B</text>
+  <path d="M52 132 h96" stroke="url(#g2)" stroke-width="1.5" opacity=".8"/>
+  <text x="100" y="152" text-anchor="middle" font-family="Inter, Arial, Helvetica, sans-serif" font-weight="600" font-size="11.5" letter-spacing="4.5" fill="#e9cf6f">COSMETICS</text>
+</svg>

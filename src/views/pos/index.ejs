@@ -1,0 +1,74 @@
+<%- include('../partials/dash_header') %>
+<h1>New sale</h1>
+<% if (error) { %><div class="flash flash-error"><%= error %></div><% } %>
+<div class="pos">
+  <div class="pos-products card">
+    <input type="search" id="pos-search" placeholder="Search product… (type to filter)" autofocus>
+    <div id="pos-list" class="pos-list"></div>
+  </div>
+  <form method="post" action="/pos/sale" class="pos-cart card" id="pos-form">
+    <h2>Current sale</h2>
+    <table class="table compact" id="pos-table"><tbody></tbody></table>
+    <p class="muted" id="pos-empty">Click products on the left to add them.</p>
+    <div class="totals">
+      <div><span>Subtotal</span><strong id="pos-subtotal">₦0.00</strong></div>
+      <% if (maxPct > 0) { %><div><span>Discount (₦)<% if (maxPct < 100) { %> <em class="small muted">max <%= maxPct %>%</em><% } %></span><input type="number" name="discount" id="pos-discount" min="0" step="0.01" value="0"></div>
+      <% } else { %><input type="hidden" name="discount" id="pos-discount" value="0"><% } %>
+      <div class="grand"><span>Total</span><strong id="pos-total">₦0.00</strong></div>
+    </div>
+    <label>Payment method
+      <select name="payment_method">
+        <% Object.entries(PAYMENT_METHODS).forEach(([k, v]) => { %><option value="<%= k %>"><%= v %></option><% }) %>
+      </select>
+    </label>
+    <label>Customer name (optional) <input name="customer_name" placeholder="Walk-in customer"></label>
+    <label>Customer phone (optional) <input name="customer_phone"></label>
+    <input type="hidden" name="items" id="pos-items">
+    <button class="btn primary wide big-btn" id="pos-submit" disabled>Complete sale &amp; print receipt</button>
+    <button type="button" class="btn wide" id="pos-clear">Clear</button>
+  </form>
+</div>
+<script>
+const PRODUCTS = <%- jsonForScript(products) %>;
+const fmt = n => '₦' + (Number(n) || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const cart = new Map();
+const byId = new Map(PRODUCTS.map(p => [p.id, p]));
+const list = document.getElementById('pos-list'), search = document.getElementById('pos-search');
+function renderList() {
+  const q = search.value.trim().toLowerCase();
+  const rows = PRODUCTS.filter(p => !q || p.name.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q));
+  list.innerHTML = rows.map(p => `<button type="button" class="pos-item ${p.stock <= 0 ? 'oos' : ''}" data-id="${p.id}" ${p.stock <= 0 ? 'disabled' : ''}>
+      <span class="pi-name">${esc(p.name)}</span><span class="pi-meta">${esc(p.category || '')} · ${p.stock} left</span><span class="pi-price">${fmt(p.price)}</span></button>`).join('') || '<p class="muted">No products match.</p>';
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function add(id, delta) {
+  const p = byId.get(id); if (!p) return;
+  const q = (cart.get(id) || 0) + delta;
+  if (q <= 0) cart.delete(id); else cart.set(id, Math.min(q, p.stock));
+  renderCart();
+}
+function renderCart() {
+  const tb = document.querySelector('#pos-table tbody');
+  let sub = 0;
+  tb.innerHTML = [...cart].map(([id, qty]) => { const p = byId.get(id); const t = p.price * qty; sub += t;
+    return `<tr><td>${esc(p.name)}<div class="muted small">${fmt(p.price)}</div></td>
+      <td class="qty"><button type="button" data-d="-1" data-id="${id}">−</button><b>${qty}</b><button type="button" data-d="1" data-id="${id}">+</button></td>
+      <td class="r">${fmt(t)}</td><td><button type="button" class="x" data-d="-999" data-id="${id}">×</button></td></tr>`; }).join('');
+  const disc = Math.min(Math.max(parseFloat(document.getElementById('pos-discount').value) || 0, 0), sub);
+  document.getElementById('pos-subtotal').textContent = fmt(sub);
+  document.getElementById('pos-total').textContent = fmt(sub - disc);
+  document.getElementById('pos-empty').hidden = cart.size > 0;
+  document.getElementById('pos-submit').disabled = cart.size === 0;
+}
+list.addEventListener('click', e => { const b = e.target.closest('.pos-item'); if (b) add(+b.dataset.id, 1); });
+document.getElementById('pos-table').addEventListener('click', e => { const b = e.target.closest('button[data-d]'); if (b) add(+b.dataset.id, +b.dataset.d); });
+document.getElementById('pos-discount').addEventListener('input', renderCart);
+document.getElementById('pos-clear').addEventListener('click', () => { cart.clear(); renderCart(); });
+search.addEventListener('input', renderList);
+search.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const first = list.querySelector('.pos-item:not([disabled])'); if (first) { add(+first.dataset.id, 1); search.select(); } } });
+document.getElementById('pos-form').addEventListener('submit', () => {
+  document.getElementById('pos-items').value = JSON.stringify([...cart].map(([id, qty]) => ({ id, qty })));
+});
+renderList(); renderCart();
+</script>
+<%- include('../partials/dash_footer') %>

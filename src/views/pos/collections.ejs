@@ -1,0 +1,36 @@
+<%- include('../partials/dash_header') %>
+<h1>Order collections</h1>
+<p class="muted">When a customer comes with their receipt or invoice number, find the order here and mark it collected.</p>
+<form class="row" method="get" action="/pos/collections">
+  <input name="q" value="<%= q %>" placeholder="Invoice number (e.g. INV-000012 or 12) or phone number" class="grow">
+  <button class="btn primary">Find</button>
+</form>
+<% if (q) { %>
+  <% if (!found) { %><div class="flash flash-error">No order found for "<%= q %>".</div><% } else { %>
+  <div class="card">
+    <div class="row between">
+      <div><h2><%= found.invoice_no %></h2><div class="muted"><%= found.customer_name %> · <%= found.customer_phone %> · placed <%= fmtDate(found.created_at) %></div></div>
+      <span class="tag <%= statusClass(found.status) %>"><%= statusLabel(found.status) %></span>
+    </div>
+    <table class="table compact">
+      <tbody><% found.items.forEach(i => { %><tr><td><%= i.name %></td><td class="r"><%= i.qty %> × <%= fmtMoney(i.price) %></td><td class="r"><%= fmtMoney(i.line_total) %></td></tr><% }) %></tbody>
+      <tfoot><tr><td colspan="2" class="r"><strong>Total</strong></td><td class="r"><strong><%= fmtMoney(found.total) %></strong></td></tr></tfoot>
+    </table>
+    <% if (found.status === 'confirmed') { %>
+      <form method="post" action="/pos/collections/<%= found.id %>/collect"><button class="btn primary big-btn">Hand over items &amp; mark collected</button></form>
+    <% } else if (found.status === 'collected') { %><p class="flash flash-ok">Already collected on <%= fmtDate(found.collected_at) %>.</p>
+    <% } else { %><p class="flash flash-error">Payment for this order has <strong>not</strong> been confirmed by the owner. Do not hand over the items yet.</p><% } %>
+  </div>
+  <% } %>
+<% } %>
+<h2>Paid, waiting for collection (<%= waiting.length %>)</h2>
+<% if (!waiting.length) { %><p class="muted">Nothing waiting.</p><% } else { %>
+<table class="table">
+  <thead><tr><th>Invoice</th><th>Customer</th><th>Phone</th><th class="r">Total</th><th>Confirmed</th><th></th></tr></thead>
+  <tbody><% waiting.forEach(o => { %><tr>
+    <td><a href="/pos/collections?q=<%= o.invoice_no %>"><%= o.invoice_no %></a></td><td><%= o.customer_name %></td><td><%= o.customer_phone %></td>
+    <td class="r"><%= fmtMoney(o.total) %></td><td><%= fmtDate(o.confirmed_at) %></td>
+    <td><form method="post" action="/pos/collections/<%= o.id %>/collect"><button class="btn small">Mark collected</button></form></td></tr><% }) %></tbody>
+</table>
+<% } %>
+<%- include('../partials/dash_footer') %>

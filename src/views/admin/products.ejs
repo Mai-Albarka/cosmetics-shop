@@ -1,0 +1,26 @@
+<%- include('../partials/dash_header') %>
+<div class="row between">
+  <h1>Products</h1>
+  <div class="row"><a class="btn" href="/admin/products?all=<%= showInactive ? '0' : '1' %>"><%= showInactive ? 'Hide hidden products' : 'Show hidden products' %></a><a class="btn primary" href="/admin/products/new">+ Add product</a></div>
+</div>
+<table class="table">
+  <thead><tr><th></th><th>Name</th><th>Category</th><th class="r">Price</th><th class="r">Stock</th><th></th></tr></thead>
+  <tbody><% products.forEach(p => { %><tr class="<%= p.active ? '' : 'inactive' %>">
+    <td><% if (p.image) { %><img class="mini" src="/uploads/products/<%= p.image %>" alt=""><% } %></td>
+    <td><a href="/admin/products/<%= p.id %>/edit"><%= p.name %></a><% if (!p.active) { %> <span class="tag muted">hidden</span><% } %></td>
+    <td><%= p.category || '' %></td>
+    <td class="r"><%= fmtMoney(p.price) %></td>
+    <td class="r"><span class="<%= p.stock <= p.low_stock ? 'tag warn' : '' %>"><%= p.stock %></span>
+      <form method="post" action="/admin/products/<%= p.id %>/stock" class="inline"><input type="number" name="delta" placeholder="+10" class="tiny"><button class="btn small">Adjust</button></form></td>
+    <td class="r"><a class="btn small" href="/admin/products/<%= p.id %>/edit">Edit</a>
+      <% if (p.active) { %><form method="post" action="/admin/products/<%= p.id %>/delete" class="inline"><button class="btn small danger">Hide</button></form>
+      <% } else { %><form method="post" action="/admin/products/<%= p.id %>/restore" class="inline"><button class="btn small">Restore</button></form><% } %></td>
+  </tr><% }) %></tbody>
+</table>
+<div class="card narrow">
+  <h2>Categories</h2>
+  <ul class="plain"><% categories.forEach(c => { %><li class="row between"><span><%= c.name %> <span class="muted small">(<%= c.n %>)</span></span>
+    <form method="post" action="/admin/categories/<%= c.id %>/delete" onsubmit="return confirm('Delete this category? Products keep their data.')"><button class="btn small danger">Delete</button></form></li><% }) %></ul>
+  <form method="post" action="/admin/categories" class="row"><input name="name" placeholder="New category" required class="grow"><button class="btn">Add</button></form>
+</div>
+<%- include('../partials/dash_footer') %>

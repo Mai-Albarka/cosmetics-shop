@@ -1,0 +1,26 @@
+<%- include('../partials/dash_header') %>
+<h1>Staff accounts</h1>
+<div class="two-col">
+  <div class="card">
+    <table class="table">
+      <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th></th></tr></thead>
+      <tbody><% staff.forEach(s => { %><tr class="<%= s.active ? '' : 'inactive' %>">
+        <td><%= s.name %></td><td><%= s.username %></td><td><%= s.role === 'admin' ? 'Owner / admin' : 'Shop staff' %></td>
+        <td><%= s.active ? 'Active' : 'Disabled' %></td>
+        <td class="r">
+          <% if (s.id !== user.id) { %><form method="post" action="/admin/staff/<%= s.id %>/toggle" class="inline"><button class="btn small"><%= s.active ? 'Disable' : 'Enable' %></button></form><% } %>
+          <form method="post" action="/admin/staff/<%= s.id %>/password" class="inline"><input type="password" name="password" placeholder="New password" class="tiny-w" minlength="6"><button class="btn small">Reset</button></form>
+        </td></tr><% }) %></tbody>
+    </table>
+  </div>
+  <form method="post" action="/admin/staff" class="card">
+    <h2>Add account</h2>
+    <% if (error) { %><div class="flash flash-error"><%= error %></div><% } %>
+    <label>Full name <input name="name" required></label>
+    <label>Username <input name="username" required pattern="[a-z0-9_.]{3,30}" placeholder="lowercase, no spaces"></label>
+    <label>Password <input type="password" name="password" required minlength="6"></label>
+    <label>Role <select name="role"><option value="staff">Shop staff (sales &amp; collections only)</option><option value="admin">Owner / admin (everything)</option></select></label>
+    <button class="btn primary">Create account</button>
+  </form>
+</div>
+<%- include('../partials/dash_footer') %>

@@ -1,0 +1,22 @@
+{
+  "name": "cosmetics-shop",
+  "version": "1.0.0",
+  "description": "Soap & cosmetics shop: online store with bank-transfer invoices, staff point of sale, and admin sales reports",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": { "node": ">=22.5" },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "multer": "^2.0.1",
+    "pdfkit": "^0.15.0"
+  }
+}

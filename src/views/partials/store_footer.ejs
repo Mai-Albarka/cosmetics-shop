@@ -1,0 +1,17 @@
+</main>
+<footer class="store-footer">
+  <div class="wrap">
+    <div class="foot-brand"><span class="brand-mark">✦</span> <%= shop.shop_name %></div>
+    <div class="muted small"><%= shop.tagline %></div>
+    <div class="small foot-meta">
+      <% if (shop.address) { %><span><%= shop.address %></span><% } %>
+      <% if (shop.phone) { %><span>Phone: <%= shop.phone %></span><% } %>
+      <% if (shop.whatsapp) { %><span>WhatsApp: <%= shop.whatsapp %></span><% } %>
+      <span><a href="/login">Staff login</a></span>
+    </div>
+  </div>
+</footer>
+<% if (shop.whatsapp) { %><a class="wa-float" href="https://wa.me/<%= shop.whatsapp.replace(/\D/g, '') %>" target="_blank" rel="noopener" title="Chat on WhatsApp">💬</a><% } %>
+<script src="/js/cart.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<%- include('../partials/dash_header') %>
+<h1>Settings</h1>
+<form method="post" action="/admin/settings" class="two-col">
+  <div class="card">
+    <h2>Shop</h2>
+    <label>Shop name <input name="shop_name" value="<%= shop.shop_name %>" required></label>
+    <label>Tagline <input name="tagline" value="<%= shop.tagline %>"></label>
+    <label>Phone <input name="phone" value="<%= shop.phone %>"></label>
+    <label>WhatsApp number (customers can chat from the shop page) <input name="whatsapp" value="<%= shop.whatsapp %>" placeholder="e.g. 2348031234567"></label>
+    <label>Address <input name="address" value="<%= shop.address %>"></label>
+    <label>Maximum discount staff may give (%) <input type="number" name="staff_discount_max_percent" min="0" max="100" value="<%= shop.staff_discount_max_percent %>"><span class="small muted">0 = staff cannot give any discount. You as owner are never limited.</span></label>
+    <label>Time zone offset from UTC (minutes) <input type="number" name="tz_offset_minutes" value="<%= shop.tz_offset_minutes %>"><span class="small muted">Nigeria = 60</span></label>
+  </div>
+  <div class="card">
+    <h2>Bank account shown on invoices</h2>
+    <label>Bank name <input name="bank_name" value="<%= shop.bank_name %>"></label>
+    <label>Account number <input name="account_number" value="<%= shop.account_number %>"></label>
+    <label>Account name <input name="account_name" value="<%= shop.account_name %>"></label>
+    <label>Payment instructions (invoice) <textarea name="invoice_note" rows="3"><%= shop.invoice_note %></textarea></label>
+    <label>Thank-you note (receipts) <textarea name="receipt_note" rows="2"><%= shop.receipt_note %></textarea></label>
+    <button class="btn primary">Save settings</button>
+  </div>
+</form>
+<%- include('../partials/dash_footer') %>

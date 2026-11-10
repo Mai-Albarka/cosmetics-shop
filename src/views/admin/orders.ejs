@@ -1,0 +1,24 @@
+<%- include('../partials/dash_header') %>
+<h1>Orders &amp; sales</h1>
+<form class="row wrap-row" method="get" action="/admin/orders">
+  <input name="q" value="<%= q %>" placeholder="Invoice, name or phone" class="grow">
+  <select name="status"><option value="">Any status</option><% Object.entries(STATUS).forEach(([k, v]) => { %><option value="<%= k %>" <%= status === k ? 'selected' : '' %>><%= v.label %></option><% }) %></select>
+  <select name="type"><option value="">Online + shop</option><option value="online" <%= type === 'online' ? 'selected' : '' %>>Online orders</option><option value="pos" <%= type === 'pos' ? 'selected' : '' %>>Shop sales</option></select>
+  <button class="btn primary">Filter</button>
+</form>
+<table class="table">
+  <thead><tr><th>Invoice</th><th>Type</th><th>Customer</th><th>Status</th><th class="r">Total</th><th>Placed</th><th>Staff</th></tr></thead>
+  <tbody>
+  <% if (!orders.length) { %><tr><td colspan="7" class="muted">No orders match.</td></tr><% } %>
+  <% orders.forEach(o => { %><tr>
+    <td><a href="/admin/orders/<%= o.id %>"><%= o.invoice_no %></a></td>
+    <td><%= o.type === 'pos' ? 'Shop' : 'Online' %></td>
+    <td><%= o.customer_name || 'Walk-in' %><div class="small muted"><%= o.customer_phone %></div></td>
+    <td><span class="tag <%= statusClass(o.status) %>"><%= statusLabel(o.status) %></span></td>
+    <td class="r"><%= fmtMoney(o.total) %></td>
+    <td class="small"><%= fmtDate(o.created_at) %></td>
+    <td class="small"><%= o.sold_by_name || '' %></td>
+  </tr><% }) %>
+  </tbody>
+</table>
+<%- include('../partials/dash_footer') %>

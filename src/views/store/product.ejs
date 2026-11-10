@@ -1,0 +1,22 @@
+<%- include('../partials/store_header') %>
+<p class="crumb"><a href="/">← All products</a></p>
+<div class="product-detail">
+  <div class="pd-image reveal">
+    <% if (p.image) { %><img src="/uploads/products/<%= p.image %>" alt="<%= p.name %>"><% } else { %><div class="placeholder big">✦</div><% } %>
+  </div>
+  <div class="pd-info reveal" style="--d:120ms">
+    <div class="eyebrow dark"><%= p.category || 'Product' %></div>
+    <h1><%= p.name %></h1>
+    <div class="pc-price big"><%= fmtMoney(p.price) %></div>
+    <p class="desc"><%= p.description %></p>
+    <% if (p.stock > 0) { %>
+      <div class="row">
+        <label class="inline">Qty <input type="number" id="qty" value="1" min="1" max="<%= p.stock %>" class="qty-input"></label>
+        <button class="btn primary add-to-cart" data-id="<%= p.id %>" data-qty-input="qty">Add to cart</button>
+        <a href="/cart" class="btn">View cart</a>
+      </div>
+      <p class="muted small"><%= p.stock %> in stock</p>
+    <% } else { %><span class="tag bad">Out of stock</span><% } %>
+  </div>
+</div>
+<%- include('../partials/store_footer') %>

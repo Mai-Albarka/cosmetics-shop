@@ -1,0 +1,16 @@
+<%- include('../partials/store_header') %>
+<h1>Your cart</h1>
+<div id="cart-empty" class="card" hidden><p>Your cart is empty.</p><a href="/" class="btn primary">Start shopping</a></div>
+<div id="cart-view" hidden>
+  <table class="table" id="cart-table">
+    <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th class="r">Total</th><th></th></tr></thead>
+    <tbody></tbody>
+    <tfoot><tr><td colspan="3" class="r"><strong>Total</strong></td><td class="r"><strong id="cart-total"></strong></td><td></td></tr></tfoot>
+  </table>
+  <div class="row end">
+    <a href="/" class="btn">Continue shopping</a>
+    <a href="/checkout" class="btn primary">Checkout</a>
+  </div>
+</div>
+<script>document.addEventListener('DOMContentLoaded', () => Cart.renderCartPage());</script>
+<%- include('../partials/store_footer') %>

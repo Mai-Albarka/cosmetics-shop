@@ -1,0 +1,51 @@
+<%- include('../partials/store_header') %>
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <div class="eyebrow">Premium soap · skincare · cosmetics</div>
+    <h1><%= shop.shop_name %></h1>
+    <p><%= shop.tagline %></p>
+    <form class="search" action="/" method="get">
+      <input type="search" name="q" value="<%= q %>" placeholder="Search products…" aria-label="Search products">
+      <% if (cat) { %><input type="hidden" name="category" value="<%= cat %>"><% } %>
+      <button class="btn gold">Search</button>
+    </form>
+  </div>
+</section>
+
+<% if (!q && !cat) { %>
+<section class="how reveal">
+  <div class="how-step"><span class="num">1</span><strong>Choose</strong><span>Add what you need to your cart.</span></div>
+  <div class="how-step"><span class="num">2</span><strong>Pay by transfer</strong><span>Get an invoice with our account number.</span></div>
+  <div class="how-step"><span class="num">3</span><strong>Send receipt</strong><span>Upload your transfer screenshot.</span></div>
+  <div class="how-step"><span class="num">4</span><strong>Collect</strong><span>Your goods are packed before you arrive.</span></div>
+</section>
+<% } %>
+
+<div class="chips reveal">
+  <a href="/<%= q ? '?q=' + encodeURIComponent(q) : '' %>" class="chip <%= !cat ? 'on' : '' %>">All</a>
+  <% categories.forEach(c => { %>
+    <a href="/?category=<%= c.id %><%= q ? '&q=' + encodeURIComponent(q) : '' %>" class="chip <%= cat === c.id ? 'on' : '' %>"><%= c.name %></a>
+  <% }) %>
+</div>
+<% if (q) { %><p class="muted center">Results for “<%= q %>”</p><% } %>
+<% if (!products.length) { %><p class="muted center">No products found.</p><% } %>
+<div class="grid">
+  <% products.forEach((p, i) => { %>
+  <div class="product-card reveal" style="--d:<%= (i % 8) * 60 %>ms">
+    <a href="/product/<%= p.id %>" class="thumb">
+      <% if (p.image) { %><img src="/uploads/products/<%= p.image %>" alt="<%= p.name %>" loading="lazy"><% } else { %><div class="placeholder">✦</div><% } %>
+      <% if (p.stock > 0 && p.stock <= p.low_stock) { %><span class="ribbon">Few left</span><% } %>
+    </a>
+    <div class="pc-body">
+      <div class="muted small cat"><%= p.category || '' %></div>
+      <a href="/product/<%= p.id %>" class="pc-name"><%= p.name %></a>
+      <div class="pc-price"><%= fmtMoney(p.price) %></div>
+      <% if (p.stock > 0) { %>
+        <button class="btn primary add-to-cart" data-id="<%= p.id %>">Add to cart</button>
+      <% } else { %><span class="tag bad">Out of stock</span><% } %>
+    </div>
+  </div>
+  <% }) %>
+</div>
+<%- include('../partials/store_footer') %>
