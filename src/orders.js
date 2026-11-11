@@ -21,12 +21,11 @@ function parseItems(raw) {
  * Creates an order. For online orders stock is only checked here and deducted on confirmation.
  * For POS sales the items are paid and handed over immediately, so stock is deducted now.
  */
-function createOrder({ type, items, customer_name = '', customer_phone = '', customer_address = '', note = '', payment_method = 'transfer', discount = 0, staff_id = null }) {
+async function createOrder({ type, items, customer_name = '', customer_phone = '', customer_address = '', note = '', payment_method = 'transfer', discount = 0, staff_id = null }) {
   const wanted = parseItems(items);
-  const getProduct = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1');
   const lines = [];
   for (const [id, qty] of wanted) {
-    const p = getProduct.get(id);
+    const p = await db.get('SELECT * FROM products WHERE id = ? AND active = 1', id);
     if (!p) throw new OrderError('One of the products in your cart is no longer available.');
     if (type === 'pos' && p.stock < qty) throw new OrderError(`Only ${p.stock} of "${p.name}" left in stock.`);
     if (type === 'online' && p.stock < qty) throw new OrderError(`Only ${p.stock} of "${p.name}" left in stock. Please reduce the quantity.`);
@@ -38,90 +37,78 @@ function createOrder({ type, items, customer_name = '', customer_phone = '', cus
   const token = crypto.randomBytes(10).toString('hex');
   const isPos = type === 'pos';
 
-  db.exec('BEGIN');
-  try {
-    const r = db.prepare(`INSERT INTO orders(type, status, customer_name, customer_phone, customer_address, note, subtotal, discount, total,
+  const id = await db.tx(async tx => {
+    const r = await tx.get(`INSERT INTO orders(type, status, customer_name, customer_phone, customer_address, note, subtotal, discount, total,
         payment_method, paid_at, collected_at, collected_by, sold_by, token)
-      VALUES (?,?,?,?,?,?,?,?,?,?,${isPos ? "datetime('now'), datetime('now'), ?" : 'NULL, NULL, NULL'},?,?)`)
-      .run(...[type, isPos ? 'collected' : 'pending_payment', customer_name.trim(), customer_phone.trim(), customer_address.trim(), note.trim(),
+      VALUES (?,?,?,?,?,?,?,?,?,?,${isPos ? 'now(), now(), ?' : 'NULL, NULL, NULL'},?,?) RETURNING id`,
+      ...[type, isPos ? 'collected' : 'pending_payment', customer_name.trim(), customer_phone.trim(), customer_address.trim(), note.trim(),
         subtotal, discount, total, isPos ? payment_method : 'transfer', ...(isPos ? [staff_id] : []), staff_id, token]);
-    const id = Number(r.lastInsertRowid);
-    db.prepare('UPDATE orders SET invoice_no = ? WHERE id = ?').run(invoiceNo(id), id);
-    const insItem = db.prepare('INSERT INTO order_items(order_id, product_id, name, price, qty, line_total) VALUES (?,?,?,?,?,?)');
-    const decStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
+    const id = Number(r.id);
+    await tx.run('UPDATE orders SET invoice_no = ? WHERE id = ?', invoiceNo(id), id);
     for (const l of lines) {
-      insItem.run(id, l.product_id, l.name, l.price, l.qty, l.line_total);
-      if (isPos) decStock.run(l.qty, l.product_id);
+      await tx.run('INSERT INTO order_items(order_id, product_id, name, price, qty, line_total) VALUES (?,?,?,?,?,?)', id, l.product_id, l.name, l.price, l.qty, l.line_total);
+      if (isPos) await tx.run('UPDATE products SET stock = stock - ? WHERE id = ?', l.qty, l.product_id);
     }
-    db.exec('COMMIT');
-    return getOrder(id);
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+    return id;
+  });
+  return getOrder(id);
 }
 
-function getOrder(id) {
-  const o = db.prepare(`SELECT o.*, s.name AS sold_by_name, c.name AS confirmed_by_name, k.name AS collected_by_name
+async function getOrder(id) {
+  const o = await db.get(`SELECT o.*, s.name AS sold_by_name, c.name AS confirmed_by_name, k.name AS collected_by_name
     FROM orders o LEFT JOIN users s ON s.id = o.sold_by LEFT JOIN users c ON c.id = o.confirmed_by LEFT JOIN users k ON k.id = o.collected_by
-    WHERE o.id = ?`).get(id);
+    WHERE o.id = ?`, id);
   if (!o) return null;
-  o.items = db.prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY id').all(id);
+  o.items = await db.all('SELECT * FROM order_items WHERE order_id = ? ORDER BY id', id);
   return o;
 }
-function getOrderByInvoice(inv) {
-  const row = db.prepare('SELECT id FROM orders WHERE invoice_no = ?').get(String(inv || '').trim().toUpperCase());
+async function getOrderByInvoice(inv) {
+  const row = await db.get('SELECT id FROM orders WHERE invoice_no = ?', String(inv || '').trim().toUpperCase());
   return row ? getOrder(row.id) : null;
 }
 
-function submitPayment(id, file, note) {
-  db.prepare(`UPDATE orders SET payment_proof = ?, payment_note = ?, status = 'payment_submitted', payment_submitted_at = datetime('now'), rejected_reason = ''
-    WHERE id = ? AND status IN ('pending_payment','rejected','payment_submitted')`).run(file, note || '', id);
+async function submitPayment(id, file, note) {
+  await db.run(`UPDATE orders SET payment_proof = ?, payment_note = ?, status = 'payment_submitted', payment_submitted_at = now(), rejected_reason = ''
+    WHERE id = ? AND status IN ('pending_payment','rejected','payment_submitted')`, file, note || '', id);
 }
 
-function confirmOrder(id, userId) {
-  const o = getOrder(id);
+async function confirmOrder(id, userId) {
+  const o = await getOrder(id);
   if (!o || !['payment_submitted', 'pending_payment'].includes(o.status)) throw new OrderError('This order cannot be confirmed in its current state.');
-  db.exec('BEGIN');
-  try {
-    db.prepare(`UPDATE orders SET status = 'confirmed', confirmed_at = datetime('now'), paid_at = datetime('now'), confirmed_by = ? WHERE id = ?`).run(userId, id);
-    const dec = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
-    for (const it of o.items) if (it.product_id) dec.run(it.qty, it.product_id);
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  await db.tx(async tx => {
+    await tx.run(`UPDATE orders SET status = 'confirmed', confirmed_at = now(), paid_at = now(), confirmed_by = ? WHERE id = ?`, userId, id);
+    for (const it of o.items) if (it.product_id) await tx.run('UPDATE products SET stock = stock - ? WHERE id = ?', it.qty, it.product_id);
+  });
 }
 
-function rejectOrder(id, reason) {
-  db.prepare(`UPDATE orders SET status = 'rejected', rejected_reason = ? WHERE id = ? AND status IN ('payment_submitted','pending_payment')`).run(reason || 'Payment could not be verified.', id);
+async function rejectOrder(id, reason) {
+  await db.run(`UPDATE orders SET status = 'rejected', rejected_reason = ? WHERE id = ? AND status IN ('payment_submitted','pending_payment')`, reason || 'Payment could not be verified.', id);
 }
 
-function cancelOrder(id) {
-  const o = getOrder(id);
+async function cancelOrder(id) {
+  const o = await getOrder(id);
   if (!o || ['collected', 'cancelled'].includes(o.status)) throw new OrderError('This order cannot be cancelled.');
-  db.exec('BEGIN');
-  try {
+  await db.tx(async tx => {
     if (o.status === 'confirmed') {
-      const inc = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?');
-      for (const it of o.items) if (it.product_id) inc.run(it.qty, it.product_id);
+      for (const it of o.items) if (it.product_id) await tx.run('UPDATE products SET stock = stock + ? WHERE id = ?', it.qty, it.product_id);
     }
-    db.prepare(`UPDATE orders SET status = 'cancelled', paid_at = NULL WHERE id = ?`).run(id);
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+    await tx.run(`UPDATE orders SET status = 'cancelled', paid_at = NULL WHERE id = ?`, id);
+  });
 }
 
 // Owner-only: a counter sale is never deleted, it is marked VOIDED with a reason and stock is returned.
-function voidSale(id, reason) {
-  const o = getOrder(id);
+async function voidSale(id, reason) {
+  const o = await getOrder(id);
   if (!o || o.type !== 'pos' || o.status !== 'collected') throw new OrderError('Only completed counter sales can be voided.');
   if (!reason || !reason.trim()) throw new OrderError('Please give a reason for voiding this sale.');
-  db.exec('BEGIN');
-  try {
-    const inc = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?');
-    for (const it of o.items) if (it.product_id) inc.run(it.qty, it.product_id);
-    db.prepare(`UPDATE orders SET status = 'cancelled', paid_at = NULL, rejected_reason = ? WHERE id = ?`).run(reason.trim(), id);
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  await db.tx(async tx => {
+    for (const it of o.items) if (it.product_id) await tx.run('UPDATE products SET stock = stock + ? WHERE id = ?', it.qty, it.product_id);
+    await tx.run(`UPDATE orders SET status = 'cancelled', paid_at = NULL, rejected_reason = ? WHERE id = ?`, reason.trim(), id);
+  });
 }
 
-function collectOrder(id, userId) {
-  const r = db.prepare(`UPDATE orders SET status = 'collected', collected_at = datetime('now'), collected_by = ? WHERE id = ? AND status = 'confirmed'`).run(userId, id);
+async function collectOrder(id, userId) {
+  const r = await db.run(`UPDATE orders SET status = 'collected', collected_at = now(), collected_by = ? WHERE id = ? AND status = 'confirmed'`, userId, id);
   if (!r.changes) throw new OrderError('Only orders with confirmed payment can be marked as collected.');
 }
 

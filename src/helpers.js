@@ -6,27 +6,32 @@ function fmtMoney(n) { return moneyFmt.format(Number(n) || 0); }
 function fmtMoneyPlain(n) { return 'NGN ' + plainFmt.format(Number(n) || 0); }
 function fmtNum(n) { return plainFmt.format(Number(n) || 0); }
 
+// Settings are loaded from the database once per request (see server.js) and kept in memory,
+// so templates, PDFs and date helpers can read them synchronously.
+let cache = {};
 const settings = {
-  all() {
+  async load() {
     const o = {};
-    for (const r of db.prepare('SELECT key, value FROM settings').all()) o[r.key] = r.value;
+    for (const r of await db.all('SELECT key, value FROM settings')) o[r.key] = r.value;
+    cache = o;
     return o;
   },
-  get(k) { const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(k); return r ? r.value : ''; },
-  set(k, v) {
-    db.prepare('INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-      .run(k, String(v ?? ''));
+  all() { return cache; },
+  get(k) { return cache[k] ?? ''; },
+  async set(k, v) {
+    await db.run('INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value', k, String(v ?? ''));
+    cache[k] = String(v ?? '');
   }
 };
 
 function tzOffsetMinutes() { return parseInt(settings.get('tz_offset_minutes') || '60', 10) || 0; }
-// SQLite modifier that shifts a UTC timestamp into shop-local time
-function tzMod() { const m = tzOffsetMinutes(); return (m >= 0 ? '+' : '') + m + ' minutes'; }
+// Postgres interval that shifts a UTC timestamp into shop-local time: use as  (col + ?::interval)::date
+function tzMod() { return tzOffsetMinutes() + ' minutes'; }
 
 function fmtDate(s, withTime = true) {
   if (!s) return '';
-  const d = new Date(String(s).replace(' ', 'T') + 'Z');
-  if (isNaN(d)) return s;
+  const d = s instanceof Date ? s : new Date(/^\d{4}-\d{2}-\d{2} \d/.test(String(s)) ? String(s).replace(' ', 'T') + 'Z' : s);
+  if (isNaN(d)) return String(s);
   const local = new Date(d.getTime() + tzOffsetMinutes() * 60000);
   const day = local.toISOString().slice(0, 10);
   const time = local.toISOString().slice(11, 16);
@@ -65,10 +70,10 @@ function flash(req, type, msg) { req.session.flash = { type, msg }; }
 // Safe JSON for embedding inside a <script> tag
 function jsonForScript(v) { return JSON.stringify(v).replace(/</g, '\\u003c'); }
 
-function audit(req, action, details = '', orderId = null) {
+async function audit(req, action, details = '', orderId = null) {
   const u = req && req.session && req.session.user;
-  db.prepare('INSERT INTO audit_log(user_id, user_name, action, details, order_id, ip) VALUES (?,?,?,?,?,?)')
-    .run(u ? u.id : null, u ? u.name : (req && req.auditName) || 'Customer', action, String(details).slice(0, 500), orderId, req && req.ip ? String(req.ip).slice(0, 64) : '');
+  await db.run('INSERT INTO audit_log(user_id, user_name, action, details, order_id, ip) VALUES (?,?,?,?,?,?)',
+    u ? u.id : null, u ? u.name : (req && req.auditName) || 'Customer', action, String(details).slice(0, 500), orderId, req && req.ip ? String(req.ip).slice(0, 64) : '');
 }
 
 function num(v, d = 0) { const n = parseFloat(v); return Number.isFinite(n) ? n : d; }

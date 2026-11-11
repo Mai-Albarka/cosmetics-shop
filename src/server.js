@@ -2,8 +2,8 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
-const { db, DATA_DIR } = require('./db');
-const SqliteStore = require('./session-store')(session);
+const { db, init, DATA_DIR } = require('./db');
+const PgStore = require('./session-store')(session);
 const H = require('./helpers');
 
 const app = express();
@@ -19,7 +19,7 @@ app.use('/uploads/products', express.static(path.join(DATA_DIR, 'uploads', 'prod
 
 if (!process.env.SESSION_SECRET) console.warn('WARNING: SESSION_SECRET is not set. Set it in .env for production.');
 app.use(session({
-  store: new SqliteStore(db),
+  store: new PgStore(db),
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
@@ -27,9 +27,9 @@ app.use(session({
 }));
 
 // Values available in every template
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   res.locals.user = req.session.user || null;
-  res.locals.shop = H.settings.all();
+  res.locals.shop = await H.settings.load();
   res.locals.fmtMoney = H.fmtMoney;
   res.locals.fmtDate = H.fmtDate;
   res.locals.statusLabel = H.statusLabel;
@@ -60,4 +60,6 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-app.listen(PORT, () => console.log(`Shop running at http://localhost:${PORT}  (data folder: ${DATA_DIR})`));
+init()
+  .then(() => app.listen(PORT, () => console.log(`Shop running at http://localhost:${PORT}  (uploads folder: ${DATA_DIR})`)))
+  .catch(err => { console.error('Could not connect to the database:', err.message); process.exit(1); });

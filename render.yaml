@@ -1,4 +1,5 @@
 # One-click setup for Render.com: New + > Blueprint > connect this repo.
+# The database lives in Supabase; the disk below only holds uploaded images.
 services:
   - type: web
     name: man-and-brothers-cosmetics
@@ -14,6 +15,10 @@ services:
       - key: SESSION_SECRET
         generateValue: true
       - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
     disk:
       name: shop-data
